@@ -112,7 +112,7 @@ $(OUTPUT)$(EXT): $(OBJS)
 	$(AT)$(LD) $(OBJS) $(LDFLAGS) -o $(OUTPUT)$(EXT)
 
 info:
-	$(ECHO) "Source to build for OUTPUT):"
+	$(ECHO) "Source to build for $(OUTPUT)$(EXT):"
 	$(AT)ls -1lh $(SRCS)
 	$(ECHO) ""
 	$(ECHO) "Files included in $(ZIPOUT):"
@@ -151,5 +151,5 @@ prep:
 	$(AT)$(CP) /c/Program\ Files\ \(x86\)/FUJITSU/FUJITSU\ FLASH\ MCU\ Programmer/FR/chipdef.ini chipdef32.ini
 
 help:
-	$(AT)$(CAT) readme.txt
+	$(AT)$(CAT) README
 
