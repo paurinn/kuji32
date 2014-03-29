@@ -1,0 +1,42 @@
+#Kuji32 Flash MCU Programmer
+#Copyright (C) 2014 Kari Sigurjonsson
+
+#This program is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+
+#You should have received a copy of the GNU General Public License
+#along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# GNU/Linux specific Make directives.
+
+# Declare tools.
+SHELL = /bin/sh
+CC = clang
+LD = clang
+#CC = gcc
+#LD = gcc
+INSTALL = install
+RM = rm
+MKDIR = mkdir
+SHA1SUM = sha1sum
+LDCONFIG = ldconfig
+VALGRIND = valgrind --leak-check=full
+ECHO = @echo
+CAT = cat
+ZIP = zip
+SQLITE3 = sqlite3
+
+PREFIX ?= /usr/local
+
+CFLAGS	+= -D_GNU_SOURCE -D_POSIX_C_SOURCE=2 -D_XOPEN_SOURCE
+LDFLAGS	+= -lrt -lm
+
+#SRCS +=
+

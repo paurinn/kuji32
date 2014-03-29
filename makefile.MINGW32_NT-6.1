@@ -1,0 +1,49 @@
+#Kuji32 Flash MCU Programmer
+#Copyright (C) 2014 Kari Sigurjonsson
+
+#This program is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+
+#You should have received a copy of the GNU General Public License
+#along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Cygwin/Windows specific Make directives.
+
+# Declare tools.
+SHELL = /bin/sh
+
+CC = gcc
+LD = gcc
+INSTALL = install
+RM = rm
+CP = cp
+MKDIR = mkdir
+SHA1SUM = sha1sum
+ECHO = @echo -e
+CAT = cat
+ZIP = zip
+
+PREFIX ?= /usr/local
+
+#RULES +=
+
+EXT =.exe
+
+# Select debugging or optimized compiler flags.
+ifeq ($(DEBUGGING), true)
+RESCFLAGS += -DDEBUGGING
+endif
+
+# Mingw specific compiler flags.
+CFLAGS += -static -static-libgcc -D__WIN32__ -mms-bitfields -mconsole
+
+# Mingw specific linker flags.
+LDFLAGS	+= -static -static-libgcc -L/usr/lib/w32api -lintl -lkernel32 -mms-bitfields -mconsole
+

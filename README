@@ -1,0 +1,44 @@
+[DEPENDENCIES]
+
+You need the stage 2 kernal files "m_flash.*" that are shipped with the official Spansion (Fujitsu) FR programmer.
+You can download a free copy from www.spansion.com for example:
+http://www.spansion.com/pages/emeaDisclaimer.aspx?forwardto=%2Fmarketingdownloads%2Fsw_utilities%2Fflash_programmer_fr%2Ffj_pc_programmer%2Fv01l28%2Fpcwfr-v01l28.zip
+
+Copy stage 2 files to folder 'kernal32/'.
+$ cp /c/Program\ Files\ \(x86\)/FUJITSU/FUJITSU\ FLASH\ MCU\ Programmer/FR/m_flash.* ./kernal32/
+
+Copy the chipdef.ini file to 'chipdef32.ini' in the same folder as the executable.
+$ cp /c/Program\ Files\ \(x86\)/FUJITSU/FUJITSU\ FLASH\ MCU\ Programmer/FR/chipdef.ini chipdef32.ini
+
+[BUILDING]
+
+Use GNU make to build the application.
+Compiles for Windows XP and up in MinGW, I use vanilla MSys + MinGW setup.
+Compiles with clang or gcc on most Linux/BSD platforms.
+
+First clean any old objects and compiled resources:
+$ make clean
+
+To clean better i.e. remove most temporary files and compiled resources:
+$ make mrproper
+
+To view what files will be built and linked:
+$ make info
+
+Then compile and link in one step:
+$ make
+
+For a verbose build output just define AT as an empty token at the command line. For example:
+$ make AT=
+
+To run the application and print out basic help:
+$ ./kuji32.exe -h
+
+Build the documentation into a HTML page (html/index.html):
+$ make doc
+
+To clean up everything in the source tree (before commit):
+$ make distclean
+
+To create a ZIP containing the source, freshly built executable and HTML documentation:
+$ make dist

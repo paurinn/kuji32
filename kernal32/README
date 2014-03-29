@@ -1,0 +1,5 @@
+Place here the files m_flash.* that are shipped with the Fujitsu FR programmer.
+You can download a free copy from www.spansion.com for example:
+http://www.spansion.com/pages/emeaDisclaimer.aspx?forwardto=%2Fmarketingdownloads%2Fsw_utilities%2Fflash_programmer_fr%2Ffj_pc_programmer%2Fv01l28%2Fpcwfr-v01l28.zip
+
+This folder will in the future contain open source flash loaders for great success.

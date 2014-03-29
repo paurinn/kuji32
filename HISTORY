@@ -1,0 +1,6 @@
+v0.3 - KS - 20140328
+	Working edition, at least for MB91F362.
+
+v0.4 - KS - 20140329
+	Changed serial port behaviour do not close port between
+	birom and kernal, just change the baud rate.
