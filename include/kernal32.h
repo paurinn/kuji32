@@ -122,11 +122,11 @@ This can take a while to finish.
 @param flash_base Base address of flash sector.
 @param buf Byte buffer to write.
 @param size Number of bytes in buf[]. 512 bytes are always used, padding is 0xFF.
-@param pcrc Optional pointer where the crc16itt value of the sector data is saved.
+@param pcsum Optional destination for checkum of buffer.
 @return On success, returns E_NONE.
 @return On failure, returns a negative error code.
 */
-int kernal32_writeflash(struct kernal32 *state, uint32_t flash_base, uint8_t *buf, uint32_t size, uint16_t *pcrc);
+int kernal32_writeflash(struct kernal32 *state, uint32_t flash_base, uint8_t *buf, uint32_t size, uint16_t *pcsum);
 
 /**
 Write loaded S-Record to MCU flash.

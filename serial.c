@@ -129,33 +129,27 @@ int serial_open(struct serial *serial, char *uri) {
 	//Purge both input and output buffers.
 	PurgeComm (serial->fd, PURGE_TXCLEAR | PURGE_RXCLEAR);
 #else
-	int pflags = O_NOCTTY | O_NONBLOCK | O_RDWR;
-
 	if (serial->fd > 0) {
 		tcdrain(serial->fd);
 		serial_close(serial);
 	}
 
-	serial->fd = open(serial->address, pflags);
+	serial->fd = open(serial->address, O_RDWR);
 	if (serial->fd < 0) {
 		return E_OPEN;
 	}
 
+	/**
+		NOTE: These settings along with select() before read() are
+		the only configuration I got to work on Linux.
+	*/
 	struct termios termios;
 	tcgetattr(serial->fd, &termios);
 
-	//FIXME, set parity and bytesize!
-	termios.c_cflag = CS8 | CLOCAL | CREAD;
-	termios.c_iflag = IGNPAR;// | ICRNL;
-	termios.c_oflag = 0;
-	termios.c_lflag &= ~ICANON; /* Set non-canonical mode */
-
-	//Set non-blocking.
-	termios.c_cc[VTIME] = 0;
-	termios.c_cc[VMIN] = 1;
-
 	cfsetispeed(&termios, com_bps_mask(serial->baudrate));
 	cfsetospeed(&termios, com_bps_mask(serial->baudrate));
+	cfmakeraw(&termios);
+	termios.c_cc[VTIME] = 255;
 
 	if (tcsetattr(serial->fd, TCSANOW, &termios) < 0) {
 		LOGE("Could not set serial attributes!");
@@ -224,20 +218,31 @@ int serial_read(struct serial *serial, uint8_t *buffer, int count) {
 		return E_READ;
 	}
 #else
+	int n = 0;
+	int r;
+	fd_set rfds;
+	struct timeval tv;
+
 	if (serial->fd < 0) return E_NOTOPEN;
-	int n;
-	n = read(serial->fd, buffer, count);
-	if (n < 0) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) return 0;
-		return (E_READ);
+
+	while (count) {
+		FD_ZERO(&rfds);
+		FD_SET(serial->fd, &rfds);
+		tv.tv_sec = 0;
+		tv.tv_usec = 50000;
+		r = select(serial->fd + 1, &rfds, NULL, NULL, &tv);
+		if (r <= 0) return r;
+		r = read(serial->fd, buffer + n, count);
+		n += r;
+		count -= r;
 	}
 #endif
 
 	if (serial->debug && n > 0) {
 		LOGI("[%s READ]", serial->address);
-		//fprintf(stderr, "READ:\n");
 		hex_dump(stderr, buffer, n);
 	}
+
 	return n;
 }
 
@@ -340,7 +345,7 @@ int serial_setbaud(struct serial *serial, int newbaud) {
 	cfsetispeed(&termios, com_bps_mask(newbaud));
 	cfsetospeed(&termios, com_bps_mask(newbaud));
 
-	if (tcsetattr(serial->fd, TCSADRAIN, &termios) < 0) {
+	if (tcsetattr(serial->fd, TCSANOW, &termios) < 0) {
 		LOGE("Error %d: Could not set serial attributes!", errno);
 		return E_SETOPTION;
 	}

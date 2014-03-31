@@ -186,6 +186,29 @@ enum mcu32_type {
 	MAX_MCU32_TYPE			/**< Sentinel. */
 };
 
+/** Enumeration of failure codes this program returns. */
+enum failures32 {
+	/**
+		Timed out waiting for processor.
+		This usually means the MCU has no power, program jumper not in place or
+		connection failure in RS232 cable.
+	*/
+	EXIT_FAIL_TIMEOUT		= 1,	/**< Error time-out waiting for MCU. */
+	EXIT_FAIL_NOTBLANK		= 2,	/**< Was asked to blank check or write and the MCU was NOT blank. */
+	EXIT_FAIL_ISBLANK		= 3,	/**< Was asked to blank check or read and the MCU was blank. */
+	EXIT_FAIL_READ			= 4,	/**< Error reading from MCU. */
+	EXIT_FAIL_WRITE			= 5,	/**< Error writing to MCU. */
+	EXIT_FAIL_SRECORD		= 6,	/**< Error in S-Record either file I/O or its data. */
+	EXIT_FAIL_CRC			= 7,	/**< Error in communication detected by CRC. */
+	EXIT_FAIL_SERIAL		= 8,	/**< Error in serial port such as access restrictions or errors in reading or writing. */
+	EXIT_FAIL_CHIPDEF		= 9,	/**< Error in 'chipdef32.ini' either reading from it or in its data. */
+	EXIT_FAIL_ARGUMENT		= 10,	/**< Error in one of the arguments either missing or invalid. */
+	EXIT_FAIL_INITBIROM		= 11,	/**< Error initializing Birom32 interface. */
+	EXIT_FAIL_INITKERNAL	= 12,	/**< Error initializing Kernal interface. */
+	EXIT_FAIL_BLANK			= 13,	/**< Error blank-checking MCU. */
+	EXIT_FAIL_ERASE			= 14,	/**< Error erasing MCU. */
+};
+
 /** MCU nametag. */
 struct mcu32_tag {
 	char *name;				/**< MCU name as single word. */

@@ -22,29 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "stdafx.h"
 
-/** Enumeration of failure codes this program returns. */
-enum failures {
-	/**
-		Timed out waiting for processor.
-		This usually means the MCU has no power, program jumper not in place or
-		connection failure in RS232 cable.
-	*/
-	EXIT_FAIL_TIMEOUT		= 1,	/**< Error time-out waiting for MCU. */
-	EXIT_FAIL_NOTBLANK		= 2,	/**< Was asked to blank check or write and the MCU was NOT blank. */
-	EXIT_FAIL_ISBLANK		= 3,	/**< Was asked to blank check or read and the MCU was blank. */
-	EXIT_FAIL_READ			= 4,	/**< Error reading from MCU. */
-	EXIT_FAIL_WRITE			= 5,	/**< Error writing to MCU. */
-	EXIT_FAIL_SRECORD		= 6,	/**< Error in S-Record either file I/O or its data. */
-	EXIT_FAIL_CRC			= 7,	/**< Error in communication detected by CRC. */
-	EXIT_FAIL_SERIAL		= 8,	/**< Error in serial port such as access restrictions or errors in reading or writing. */
-	EXIT_FAIL_CHIPDEF		= 9,	/**< Error in 'chipdef32.ini' either reading from it or in its data. */
-	EXIT_FAIL_ARGUMENT		= 10,	/**< Error in one of the arguments either missing or invalid. */
-	EXIT_FAIL_INITBIROM		= 11,	/**< Error initializing Birom32 interface. */
-	EXIT_FAIL_INITKERNAL	= 12,	/**< Error initializing Kernal interface. */
-	EXIT_FAIL_BLANK			= 13,	/**< Error blank-checking MCU. */
-	EXIT_FAIL_ERASE			= 14,	/**< Error erasing MCU. */
-};
-
 /** License clause. */
 const char *license = "\
 \n\
@@ -67,12 +44,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.\n";
 const char *help = "\
 \n\
 --------------------------------\n\
-Usage: ./kuji32 -m <mcu> -p <com> [-c <freq>] [-r <file>] [-e] [-v] [-d] [-q] [-w <file>]\n\
+Usage: ./kuji32 -m <mcu> -p <com> [-t <seconds>] [-v] [-d] [-c <freq>] [-r <file>] [-e] [-w <file>]\n\
   -h         Print help and exit.\n\
   -H         Print all supported MCUs and exit.\n\
   -V         Print application version and exit.\n\
-  -d         Hex-dump communication to stdout.\n\
+  -d         Hex-dump communication to console.\n\
   -v         Select verbosity level: 0-none, 1-errors, 2-warnings, 3-info, 4-debug.\n\
+  -t <sec>   Select discovery timeout in seconds. Default is 5 seconds.\n\
   -l <file>  Write log to <file> instead of main.log.\n\
   -p <com>   Set com port Id from 1-99 on Windows or com port device e.g. '/dev/ttyS0' on Linux.\n\
   -m <mcu>   Select MCU by name e.g. 'mb90f598g'. Case-insensitive.\n\
@@ -106,6 +84,25 @@ Exit codes:\n\
 14 : Error erasing MCU.\n\
 ";
 
+/** This structure contains the results of command line argument parser. */
+struct params32 {
+	char *argstr;		/**< Control string for getopt(). */
+	char *srecpath;		/**< Parameter given to '-w'. */
+	char *savepath;		/**< Parameter given to '-r'. */
+	char *comarg;		/**< Parameter given to '-p'. */
+
+	bool erase;			/**< User requested erase with '-e'. */
+	bool read;			/**< User requested read with '-r'. */
+	bool write;			/**< User requested write with '-w'. */
+	bool blankcheck;	/**< User requested blank with '-b'. */
+	bool debugging;		/**< User requested debugging output with '-d'. */
+
+	int timeoutsec;		/**< Parameter given to '-t'. */
+	enum frequency freq;	/**< Currently selected target crystal frequency. */
+	struct chipdef32 *chip;	/**< MCU descriptor. */
+	int freqid;			/**< Index into chip->clock[], chip->bps[] and chip->bps2[]. */
+};
+
 /**
 Print out usage information to stdout.
 */
@@ -134,46 +131,21 @@ inline bool isflashbufempty(uint8_t *buf, int size) {
 }
 
 /**
-	Main entry point.
-	Process chipdef file, parse user options and run the programming state machine.
+Process command line parameters.
+@param argc Argument count.
+@param argv Argument vector.
+@param params Destination for the parsed parameters.
+@return On success, returns E_NONE.
+@return On failure, returns an exit() status.
 */
-int main(int argc, char *argv[]) {
-	int bps = 0;
-	int id = 0;
-	int rc;
+int process_params32(int argc, char *argv[], struct params32 *params) {
+	int id;
 	int opt;
-	int freqid = -1;
-	enum frequency freq = 0;
-	struct chipdef32 *chip = NULL;
-	bool debugging = false;
-	int bytes = 0;
-	uint16_t csum = 0;
-	struct serial serial;
 
-	char *argstr = "hHVdl:v:p:m:c:ber:w:";
-	char *srecpath = NULL;
-	char *savepath = NULL;
+	memset(params, 0x00, sizeof(struct params32));
+	params->argstr = "hHVdt:l:v:p:m:c:ber:w:";
 
-	char *comarg = NULL;
-	char compath[256];
-
-#ifdef __WIN32__
-	int comid = 0;
-#endif
-
-	if (process_chipdef32() != E_NONE) {
-		return EXIT_FAIL_CHIPDEF;
-	}
-
-	bool erase = false;
-	bool read = false;
-	bool write = false;
-	bool isblank = false;
-	bool blankcheck = false;
-
-	memset(compath, 0x00, sizeof(compath));
-
-	while ((opt = getopt(argc, argv, argstr)) != -1) {
+	while ((opt = getopt(argc, argv, params->argstr)) != -1) {
 		switch (opt) {
 			case 'h':
 				print_help();
@@ -192,7 +164,11 @@ int main(int argc, char *argv[]) {
 				return EXIT_SUCCESS;
 
 			case 'd':
-				debugging = true;
+				params->debugging = true;
+				break;
+
+			case 't':
+				params->timeoutsec = strtoint32(optarg, 10, NULL);
 				break;
 
 			case 'v':
@@ -210,51 +186,54 @@ int main(int argc, char *argv[]) {
 				break;
 
 			case 'p':
-				comarg = optarg;
+				params->comarg = optarg;
 				break;
 
 			case 'm':
-				id = find_mcu32_by_name(optarg);
-				if (id > 0) {
-					chip = &chipdefs[id];
-				} else {
-					LOGE("ERROR: Invalid option '%s' to -m. This is not a MCU name.", optarg);
-					return EXIT_FAIL_ARGUMENT;
+				if (optarg) {
+					id = find_mcu32_by_name(optarg);
+					if (id > 0) {
+						params->chip = &chipdefs[id];
+					} else {
+						LOGE("ERROR: Invalid option '%s' to -m. This is not a MCU name.", optarg);
+						return EXIT_FAIL_ARGUMENT;
+					}
 				}
 				break;
 
 			case 'c':
-				id = strtoint32(optarg, 10, NULL);
-				id *= 1000000;
-				for (rc = 1; rc < N_FREQUENCY; rc++) {
-					if (frequencies[rc] == id) {
-						freq = frequencies[rc];
+				if (optarg) {
+					id = strtoint32(optarg, 10, NULL);
+					id *= 1000000;
+					for (int i = 1; i < N_FREQUENCY; i++) {
+						if (frequencies[i] == id) {
+							params->freq = frequencies[i];
+						}
 					}
 				}
 				break;
 
 			case 'b':
-				blankcheck = true;
+				params->blankcheck = true;
 				break;
 
 			case 'r':
-				savepath = optarg;
-				if (savepath && savepath[0] == '\0') {
-					savepath = NULL;
+				if (optarg && optarg[0]) {
+					params->savepath = optarg;
+					params->savepath = NULL;
+					params->read = true;
 				}
-				read = true;
 				break;
 
 			case 'e':
-				erase = true;
+				params->erase = true;
 				break;
 
 			case 'w':
-				srecpath = optarg;
-				if (srecpath && srecpath[0] == '\0') {
-					srecpath = NULL;
+				if (optarg && optarg[0]) {
+					params->srecpath = optarg;
+					params->write = true;
 				}
-				write = true;
 				break;
 
 			case '?':
@@ -263,7 +242,18 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (chip == NULL) {
+	if (params->comarg == NULL) {
+		LOGE("Missing or invalid option '-p'.");
+		print_help();
+		return EXIT_FAIL_ARGUMENT;
+	}
+
+	if (params->timeoutsec < 1 || params->timeoutsec > 60) {
+		LOGW("Invalid timeout, setting default 5 seconds.");
+		params->timeoutsec = 5;
+	}
+
+	if (params->chip == NULL) {
 		LOGE("ERROR: Missing or invalid option '-m'.\n");
 		print_help();
 		return EXIT_FAIL_ARGUMENT;
@@ -271,25 +261,61 @@ int main(int argc, char *argv[]) {
 
 	//Morph frequency into MCU specific index that we select bps by.
 	//This is because serial port bitrate follows clock selection.
-	if (freq <= 0) {
-		freq = FREQ_4MHZ;
-		LOGD("Using default frequency %dHz.", freq);
+	if (params->freq <= 0) {
+		params->freq = FREQ_4MHZ;
+		LOGD("Using default frequency %dHz.", params->freq);
 	}
 
 	for (id = 0; id < N_FREQUENCY; id++) {
-		if (chip->clock[id] == freq) {
-			freqid = id;
+		if (params->chip->clock[id] == params->freq) {
+			params->freqid = id;
 			break;
 		}
 	}
 
-	if (freqid < 0) {
-		LOGE("The clock frequency '%d' is not supported on MCU '%s'.", freq, mcu32_name(chip->mcu));
+	if (params->freqid < 0) {
+		LOGE("The clock frequency '%d' is not supported on MCU '%s'.", params->freq, mcu32_name(params->chip->mcu));
 		return EXIT_FAIL_ARGUMENT;
 	}
 
+
+	return E_NONE;
+}
+
+/**
+	Main entry point.
+	Process chipdef file, parse user options and run the programming state machine.
+*/
+int main(int argc, char *argv[]) {
+	int bps = 0;
+	int id = 0;
+	int rc;
+	int bytes = 0;
+	uint16_t csum = 0;
+	struct serial serial;
+
+	char compath[256];
+
+	bool isblank;
+
+#ifdef __WIN32__
+	int comid = 0;
+#endif
+
+	struct params32 params;
+	if ((rc = process_params32(argc, argv, &params)) != E_NONE) {
+		LOGE("Fatal error!");
+		return rc;
+	}
+
+	if (process_chipdef32() != E_NONE) {
+		return EXIT_FAIL_CHIPDEF;
+	}
+
+	memset(compath, 0x00, sizeof(compath));
+
 	//NOTE, bps follows the clock, this is configured in 'chipdef32.ini'.
-	bps = chip->bps[freqid];
+	bps = params.chip->bps[params.freqid];
 
 	if (bps <= 0) {
 		LOGE("Internal error: Invalid bitrate.");
@@ -297,29 +323,24 @@ int main(int argc, char *argv[]) {
 	}
 
 #ifdef __WIN32__
-	comid = strtoint32(comarg, 10, &rc);
+	comid = strtoint32(params.comarg, 10, &rc);
 	if (rc != E_NONE || comid <= 0 || comid >= 100) {
 		LOGE("Missing or invalid option '-p'.");
 		print_help();
 		return EXIT_FAIL_ARGUMENT;
 	}
-	snprintf(compath, sizeof(compath) - 1, "\\\\.\\COM%d:%d:8N1", comid, chip->bps[freqid]);
+	snprintf(compath, sizeof(compath) - 1, "\\\\.\\COM%d:%d:8N1", comid, params.chip->bps[params.freqid]);
 #else
-	if (compath == NULL) {
-		LOGE("Missing or invalid option '-p'.");
-		print_help();
-		return EXIT_FAIL_ARGUMENT;
-	}
-	snprintf(compath, sizeof(compath) - 1, "%s:%d:8N1", comarg, chip->bps[freqid]);
+	snprintf(compath, sizeof(compath) - 1, "%s:%d:8N1", params.comarg, params.chip->bps[params.freqid]);
 #endif
 
-	if (write && srecpath == NULL) {
+	if (params.write && params.srecpath == NULL) {
 		LOGE("ERROR: Missing or malformed option to '-w'.");
 		print_help();
 		return EXIT_FAIL_ARGUMENT;
 	}
 
-	if (read && savepath == NULL) {
+	if (params.read && params.savepath == NULL) {
 		LOGE("ERROR: Missing or malformed option to '-r'.");
 		print_help();
 		return EXIT_FAIL_ARGUMENT;
@@ -334,7 +355,7 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAIL_SERIAL;
 	}
 
-	serial.debug = debugging;
+	serial.debug = params.debugging;
 
 	/****************************************************************************
 	  Stage 1 BIROM (Built-In-ROM).
@@ -344,7 +365,7 @@ int main(int argc, char *argv[]) {
 
 	LOGD("---------- BIROM32 START ----------");
 
-	rc = birom32_new(&birom, chip, &serial);
+	rc = birom32_new(&birom, params.chip, &serial);
 	if (rc != E_NONE) {
 		birom32_free(&birom);
 		return EXIT_FAIL_INITBIROM;
@@ -354,7 +375,7 @@ int main(int argc, char *argv[]) {
 	LOGI("Probing for MCU. Please apply power to board...");
 
 	//Is the audience listening?
-	rc = birom32_connect(birom);
+	rc = birom32_connect(birom, params.timeoutsec);
 	if (rc != E_NONE) {
 		birom32_free(&birom);
 		return EXIT_FAIL_TIMEOUT;
@@ -368,7 +389,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	//Dump stage 2 binary into MCU RAM.
-	rc = birom32_write(birom, chip->address_load, birom->kernaldata, birom->kernalsize);
+	rc = birom32_write(birom, params.chip->address_load, birom->kernaldata, birom->kernalsize);
 	if (rc != E_NONE) {
 		birom32_free(&birom);
 		return EXIT_FAIL_WRITE;
@@ -382,7 +403,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Call and transfer control to stage 2 kernal.
-	rc = birom32_call(birom, chip->address_load);
+	rc = birom32_call(birom, params.chip->address_load);
 	if (rc != E_NONE) {
 		birom32_free(&birom);
 		return EXIT_FAIL_TIMEOUT;
@@ -393,7 +414,7 @@ int main(int argc, char *argv[]) {
 	LOGD("---------- BIROM32 DONE ----------\n");
 
 	//Up the baud rate up a notch. BAM!
-	rc = serial_setbaud(&serial, chip->bps2[freqid] > 0 ? chip->bps2[freqid] : 115200);
+	rc = serial_setbaud(&serial, params.chip->bps2[params.freqid] > 0 ? params.chip->bps2[params.freqid] : 115200);
 	if (rc != E_NONE) {
 		LOGE("Error setting baudrate.");
 		return EXIT_FAIL_SERIAL;
@@ -407,7 +428,7 @@ int main(int argc, char *argv[]) {
 
 	LOGD("========== KERNAL32 START ==========");
 
-	rc = kernal32_new(&kernal, chip, &serial);
+	rc = kernal32_new(&kernal, params.chip, &serial);
 	if (rc != E_NONE) {
 		kernal32_free(&kernal);
 		return EXIT_FAIL_INITKERNAL;
@@ -421,7 +442,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	//Always blank-check.
-	rc = kernal32_blankcheck(kernal, chip->flash_start);
+	rc = kernal32_blankcheck(kernal, params.chip->flash_start);
 	if (rc < 0) {
 		LOGE("ERROR: Could not perform blank check!");
 		kernal32_free(&kernal);
@@ -432,11 +453,11 @@ int main(int argc, char *argv[]) {
 	//Exit early if chip is full and there are no operations or
 	//if chip is empty and operations would not be possible.
 	if (
-		(blankcheck)
-		|| (isblank && (!write))
-		|| ((isblank && (read || erase) && !write))
-		|| (read && isblank)
-		|| (!isblank && (!write && !read && !erase))
+		(params.blankcheck)
+		|| (isblank && (!params.write))
+		|| ((isblank && (params.read || params.erase) && !params.write))
+		|| (params.read && isblank)
+		|| (!isblank && (!params.write && !params.read && !params.erase))
 	) {
 		LOGI("== Chip Is %s ==", (isblank) ? "Blank" : "Not Blank");
 		LOGD("========== KERNAL32 DONE ==========");
@@ -445,7 +466,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	//Read flash contents
-	if (read) {
+	if (params.read) {
 		if (isblank) {
 			LOGI("== Chip Is Blank ==");
 			LOGD("========== KERNAL32 DONE ==========");
@@ -454,14 +475,14 @@ int main(int argc, char *argv[]) {
 		}
 
 		//Sector by sector!
-		uint8_t *buff = calloc(1, chip->flash_size * 2);
+		uint8_t *buff = calloc(1, params.chip->flash_size * 2);
 		assert(buff);
 
 		bytes = 0;
 		csum = 0;
 
 		LOGR("[INF]: Reading ");
-		for (uint32_t addr = chip->flash_start; addr < chip->flash_start + chip->flash_size; addr += 0x200, bytes += 512) {
+		for (uint32_t addr = params.chip->flash_start; addr < params.chip->flash_start + params.chip->flash_size; addr += 0x200, bytes += 512) {
 			rc = kernal32_readflash(kernal, addr, buff + bytes, 512, &csum);
 			if (rc != E_NONE) {
 				LOGE("Error receiving flash contents.");
@@ -480,7 +501,7 @@ int main(int argc, char *argv[]) {
 
 		LOGR("\n");
 
-		rc = srec_writefilebin(buff, bytes, savepath, 2, chip->flash_start);
+		rc = srec_writefilebin(buff, bytes, params.savepath, 2, params.chip->flash_start);
 		if (rc != E_NONE) {
 			LOGE("Error serializing S-Record.");
 			kernal32_free(&kernal);
@@ -494,7 +515,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	//Return early is chip is full and trying to write without erasing first.
-	if (!isblank && write && !erase) {
+	if (!isblank && params.write && !params.erase) {
 		LOGE("Error: Trying to write into an already full MCU. Did you forget to add '-e' argument?");
 		LOGD("========== KERNAL32 DONE ==========");
 		kernal32_free(&kernal);
@@ -502,9 +523,9 @@ int main(int argc, char *argv[]) {
 	}
 
 	//Erase chip.
-	if (erase && !isblank) {
+	if (params.erase && !isblank) {
 		LOGR("[INF]: Erasing ");
-		rc = kernal32_erasechip(kernal, chip->flash_start);
+		rc = kernal32_erasechip(kernal, params.chip->flash_start);
 		if (rc != E_NONE) {
 			LOGR("\n");
 			LOGE("ERROR: Could not erase flash!");
@@ -515,24 +536,24 @@ int main(int argc, char *argv[]) {
 		LOGI("== Chip Erased ==");
 	}
 
-	//Program S-Record.
-	if (write) {
+	//Program S-Records.
+	if (params.write) {
 		uint8_t *buf = NULL;
 
 		//Copy flash data from S-Records in file into a linear buffer.
-		//The buffer is already 2^24 bytes so we can index it directly from chip->flash_start to chip->flash_end inclusively.
-		rc = srec_readfilebin(&buf, srecpath, chip->flash_start, chip->flash_end);
+		//The buffer is already 2^24 bytes so we can index it directly from params.chip->flash_start to params.chip->flash_end inclusively.
+		rc = srec_readfilebin(&buf, params.srecpath, params.chip->flash_start, params.chip->flash_end);
 		if (rc != E_NONE || buf == NULL) {
-			LOGE("ERROR: Could not interpret S-Records from file '%s'.", srecpath);
+			LOGE("ERROR: Could not interpret S-Records from file '%s'.", params.srecpath);
 			kernal32_free(&kernal);
 			return EXIT_FAIL_SRECORD;
 		}
 
-		LOGD("Loaded S-Records from '%s'.", srecpath);
+		LOGD("Loaded S-Records from '%s'.", params.srecpath);
 
 		//Calculate rough size of transfer.
 		uint32_t size = 0;
-		for (uint32_t addr = chip->flash_start; addr < chip->flash_end; addr += 512, bytes += 512) {
+		for (uint32_t addr = params.chip->flash_start; addr < params.chip->flash_end; addr += 512, bytes += 512) {
 			if (isflashbufempty(buf + addr, 512) == false) {
 				size += 512;
 			}
@@ -546,7 +567,7 @@ int main(int argc, char *argv[]) {
 		//Write out linear buffer into MCU flash in 512 byte chunks.
 		bytes = 0;
 		uint16_t crc;
-		for (uint32_t addr = chip->flash_start; addr < chip->flash_end; addr += 512, bytes += 512) {
+		for (uint32_t addr = params.chip->flash_start; addr < params.chip->flash_end; addr += 512, bytes += 512) {
 			if (isflashbufempty(buf + addr, 512) == false) {
 				rc = kernal32_writeflash(kernal, addr, buf + addr, 512, &crc);
 				if (rc != E_NONE) {
@@ -575,8 +596,6 @@ int main(int argc, char *argv[]) {
 	kernal32_free(&kernal);
 
 	LOGD("========== KERNAL32 DONE ==========");
-
-	//LOGI("== MCU '%s' on 'COM%d' is OK ==", mcu32_name(chip->mcu), comid);
 
 	return EXIT_SUCCESS;
 }

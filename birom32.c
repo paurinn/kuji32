@@ -60,20 +60,20 @@ void birom32_free(struct birom32_state **state) {
 	}
 }
 
-int birom32_connect(struct birom32_state *state) {
+int birom32_connect(struct birom32_state *state, int timeoutsec) {
 	int rc;
 	uint8_t buf[2];
 	int tries;
-	int maxtries = 100;
 
-	//serial_purge(state->serial);
+	serial_purge(state->serial);
 
 	memset(&buf, 0x00, sizeof(buf));
 
-	//First handshake is to give user chance to power up MCU.
-	for (tries = 0; tries < maxtries; tries++) {
-		msleep(100);
+	if (timeoutsec < 1 || timeoutsec > 60) timeoutsec = 5;
 
+	//First handshake is to give user chance to power up MCU.
+	double timeout = get_ticks() + timeoutsec;
+	while (get_ticks() < timeout) {
 		buf[0] = BIROM32_CMD_PROBE;
 		rc = serial_write(state->serial, buf, 1);
 		if (rc < 1) {
@@ -83,33 +83,23 @@ int birom32_connect(struct birom32_state *state) {
 
 		serial_drain(state->serial);
 
-		memset(&buf, 0x00, sizeof(buf));
+		buf[0] = 0;
 		rc = serial_read(state->serial, buf, 1);
 		if (rc < 0) {
 			LOGE("Error reading from serial port! Aborting.");
 			return rc;
 		}
 
-		//Continue to probe if there was no response.
-		if (rc == 0 || buf[0] == 0) {
-			//LOGE("Time-out waiting for MCU.");
-			continue;
+		if (buf[0] == BIROM32_RESP_PROBE) {
+			LOGD("OK, MCU found.");
+			return E_NONE;
 		}
 
-		if (buf[0] != BIROM32_RESP_PROBE) {
-			LOGE("Malformed response from MCU (0x%X). Please power off board and try again.", buf[0]);
-			return E_MSGMALFORMED;
-		}
-
-		break;
+		msleep(50);
 	}
 
-	if (tries >= maxtries) {
-		LOGE("TIME-OUT");
-		return E_TIMEOUT;
-	}
-
-	return E_NONE;
+	LOGE("TIME-OUT");
+	return E_TIMEOUT;
 }
 
 int birom32_check(struct birom32_state *state) {

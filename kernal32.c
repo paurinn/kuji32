@@ -46,8 +46,6 @@ void kernal32_free(struct kernal32 **state) {
 int kernal32_intro(struct kernal32 *state) {
 	uint8_t buf[10];
 	int rc;
-	int tries = 0;
-	int maxtries = 100;
 
 	memset(buf, 0x00, sizeof(buf));
 	msleep(100);
@@ -121,8 +119,7 @@ int kernal32_blankcheck(struct kernal32 *state, uint32_t flash_base) {
 			if (buf[0] == KERNAL32_RESP_BUSY) {
 				LOGD("...MCU busy...");
 			} else if (buf[0] == KERNAL32_RESP_ACK) {
-				LOGD("ACK");
-				return 1;
+				return 1;	//Returning 1 to mean SUCCESS, that is, chip flash is blank.
 			} else if (buf[0] == KERNAL32_RESP_ERRBLANK) {
 				//Read 4 bytes (address) and 4 bytes (data) and 1 byte KERNAL32_RESP_ERRBLANK again.
 				rc = serial_read(state->serial, buf, 9);
@@ -141,7 +138,7 @@ int kernal32_blankcheck(struct kernal32 *state, uint32_t flash_base) {
 
 				return E_NONE;
 			} else {
-				LOGD("Erroneounus data received %02X", buf[0]);
+				LOGW("Erroneounus data received %02X", buf[0]);
 			}
 		} else {
 			msleep(1);
@@ -295,7 +292,7 @@ int kernal32_readflash(struct kernal32 *state, uint32_t flash_base, uint8_t *buf
 	return E_NONE;
 }
 
-int kernal32_writeflash(struct kernal32 *state, uint32_t flash_base, uint8_t *buf, uint32_t size, uint16_t *pcrc) {
+int kernal32_writeflash(struct kernal32 *state, uint32_t flash_base, uint8_t *buf, uint32_t size, uint16_t *pcsum) {
 	int rc;
 
 	serial_purge(state->serial);
@@ -339,7 +336,8 @@ int kernal32_writeflash(struct kernal32 *state, uint32_t flash_base, uint8_t *bu
 
 	uint16_t crc = crcitt(buf, size);
 
-	if (pcrc) *pcrc = crc;
+	//Keep copy for caller.
+	if (pcsum) *pcsum = crc;
 
 	cmd[0] = crc >> 8;
 	cmd[1] = crc;

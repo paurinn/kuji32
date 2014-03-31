@@ -4,3 +4,8 @@ v0.3 - KS - 20140328
 v0.4 - KS - 20140329
 	Changed serial port behaviour do not close port between
 	birom and kernal, just change the baud rate.
+
+v0.5 - KS - 20140331
+	Added '-t' timeout parameter that configures connection timeout for birom32.
+	Linux version works, at least with MB91F362.
+	Preparing for some kind of win32 GUI.

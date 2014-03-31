@@ -83,10 +83,11 @@ void birom32_free(struct birom32_state **state);
 /**
 	Connect to processor i.e. send BIROM32_CMD_OPEN and expect BIROM32_RESP_OK back.
 	@param state The birom32 state.
+	@param timeoutsec Time-out in seconds.
 	@return On success, returns E_NONE.
 	@return On failure, returns a negative error code.
 */
-int birom32_connect(struct birom32_state *state);
+int birom32_connect(struct birom32_state *state, int timeoutsec);
 
 /**
 	Check if MCU ROM is in certain state.
