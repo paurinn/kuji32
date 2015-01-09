@@ -146,7 +146,7 @@ char *str_ltrim(char *str) {
 
 	// Check if there are white spaces
 	while (*str) {
-		if (!isspace(*str)) {
+		if (!isspace((int)(*str))) {
 			break;
 		}
 		str++;
@@ -168,7 +168,7 @@ char *str_rtrim(char *str) {
 
 	len = strlen(str) - 1;
 	while (*str) {
-		if (!isspace(str[len])) {
+		if (!isspace((int)str[len])) {
 			break;
 		}
 		str[len--] = '\0';
@@ -321,15 +321,20 @@ int asprintf(char **ret, const char *format, ...) {
 }
 #endif
 
-int timestamp(char *dest) {
+int timestamp(char *dest, uint8_t size, time_t tim) {
 	int n;
 
 #ifdef __WIN32__
 	struct _SYSTEMTIME st;
 	GetSystemTime(&st);
-	n = sprintf(dest, "%02d.%02d.%04d %02d:%02d:%02d+%02d", st.wDay, st.wMonth, st.wYear, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+	n = snprintf(dest, size, "%02d.%02d.%04d %02d:%02d:%02d+%02d", st.wDay, st.wMonth, st.wYear, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
 #else
-	n = sprintf(dest, "%.6f", get_ticks());
+	struct tm tm;
+	if (tim == 0) {
+		tim = time(NULL);
+	}
+	gmtime_r(&tim, &tm);
+	n = strftime(dest, size, "%FT%T", &tm);
 #endif
 
 	return n;
@@ -497,6 +502,24 @@ long filedata(const char *path, uint8_t **buf) {
 
 	return nread;
 }
+
+#ifdef __WIN32__
+void chdir_to_exe() {
+	static char exepath[MAX_PATH];
+
+	memset(exepath, 0x00, sizeof(exepath));
+	GetModuleFileName(NULL, exepath, sizeof(exepath) - 1);
+
+	//Strip executable name from path.
+	for (int i = sizeof(exepath); i >= 0; i--) {
+		if (exepath[i] == '\\') {
+			exepath[i] = '\0';
+			break;
+		}
+	}
+	SetCurrentDirectory(exepath);
+}
+#endif //__WIN32__
 
 /** @} */
 

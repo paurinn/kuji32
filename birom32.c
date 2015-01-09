@@ -185,8 +185,7 @@ int birom32_write(struct birom32_state *state, uint32_t address, uint8_t *data, 
 		return E_READ;
 	}
 
-	//Send 0x3003 over before 816 bytes of m_flash.362.
-	//Is this the checksum?
+	//Send size of m_flash.* file.
 	buffer[1] = (size >> 8) & 0xFF;
 	buffer[0] = (size & 0xFF);
 

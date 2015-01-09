@@ -8,4 +8,7 @@ v0.4 - KS - 20140329
 v0.5 - KS - 20140331
 	Added '-t' timeout parameter that configures connection timeout for birom32.
 	Linux version works, at least with MB91F362.
-	Preparing for some kind of win32 GUI.
+	Preparing for win32 gui.
+
+v0.8 - KS - 20150109
+	Added win32 GUI, works well with Wine and compiles properly using either Mingw or Cygwin.

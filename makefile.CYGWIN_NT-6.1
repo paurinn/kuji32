@@ -20,10 +20,9 @@
 SHELL = /bin/sh
 
 #CROSS_COMPILE=i586-mingw32msvc-
-CROSS_COMPILE=i686-w64-mingw32-
-CC = $(CROSS_COMPILE)gcc
-LD = $(CROSS_COMPILE)gcc
-RESCC = $(CROSS_COMPILE)windres
+CC = gcc
+LD = gcc
+RESCC = windres
 RM = rm
 CP = cp
 MKDIR = mkdir
@@ -42,6 +41,7 @@ RCFILE = kuji32.rc
 EXT =.exe
 
 STAGEDIR = $(OUTPUT)_win
+STAGEFILES += /bin/cygwin1.dll
 
 RESCFLAGS = -I./include -DREVISION=$(REVISION) -DBUILD_TIMESTAMP=$(shell date '+%s') -DMAJORVERSION=$(MAJOR) -DMINORVERSION=$(MINOR) -DBUILD=$(BUILD)
 
@@ -58,7 +58,7 @@ SRCS += mainw32.c
 else
 CFLAGS += -mconsole
 LDFLAGS += -mconsole
-SRCS += main32.c
+SRCS += main16.c
 endif
 
 # Select debugging or optimized compiler flags.

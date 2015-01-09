@@ -22,6 +22,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "stdafx.h"
 
+#ifdef __WIN32__
+#include "resource.h"
+#endif
+
 /**
 Selects verbosity level.
 See enum logg_type for valid values.
@@ -82,17 +86,17 @@ int logg(enum logg_type type, const char *fmt, ...) {
 		return E_OPEN;
 	}
 
-	timestamp(ts);
+	timestamp(ts, sizeof(ts), 0);
 	ts[22] = '\0';
 
 	va_start(ap, fmt);
 
 	switch (type) {
 		case LOGG_DEBUG:
-			if (verbosity < LOGG_DEBUG) return 0;
 #ifdef DEBUGGING
 			n = asprintf(&fmtbuf, MAGENTA"[%s](%s:%d)[DBG]: %s\n"NORM, ts, file, line, fmt);
 #else
+			if (verbosity < LOGG_DEBUG) return 0;
 			n = asprintf(&fmtbuf, MAGENTA"[DBG]: %s\n"NORM, fmt);
 #endif
 			n = vasprintf(&obuf, fmtbuf, ap);
@@ -135,7 +139,13 @@ int logg(enum logg_type type, const char *fmt, ...) {
 	fwrite(obuf, n, 1, flogg);
 	fflush(flogg);
 
-#ifdef CONSOLE
+#ifdef __WIN32__
+	{
+		extern HWND hwndDlg;
+		HWND w = GetDlgItem(hwndDlg, IDC_LBLSTATUS);
+		SetWindowText(w, obuf);
+	}
+#else
 	fwrite(obuf, n, 1, stderr);
 	fflush(stderr);
 #endif
@@ -173,7 +183,13 @@ int loggr(const char *fmt, ...) {
 	fwrite(obuf, n, 1, flogg);
 	fflush(flogg);
 
-#ifdef CONSOLE
+#ifdef __WIN32__
+	{
+		extern HWND hwndDlg;
+		HWND w = GetDlgItem(hwndDlg, IDC_LBLSTATUS);
+		SetWindowText(w, obuf);
+	}
+#else
 	fwrite(obuf, n, 1, stderr);
 	fflush(stderr);
 #endif
@@ -228,6 +244,7 @@ void logg_hex(uint8_t *data, size_t size) {
 		if (n % 16 == 0) {
 			/* line completed */
 			fprintf(flogg, "[%4.4s] %-50.50s |%-16.16s|\n", addrstr, hexstr, charstr);
+			fprintf(stderr, "[%4.4s] %-50.50s |%-16.16s|\n", addrstr, hexstr, charstr);
 			hexstr[0] = 0;
 			charstr[0] = 0;
 		} else if (n % 8 == 0) {
@@ -241,6 +258,7 @@ void logg_hex(uint8_t *data, size_t size) {
 	if (strlen(hexstr) > 0) {
 		/* print rest of buffer if not empty */
 		fprintf(flogg, "[%4.4s] %-50.50s |%-16.16s|\n", addrstr, hexstr, charstr);
+		fprintf(stderr, "[%4.4s] %-50.50s |%-16.16s|\n", addrstr, hexstr, charstr);
 	}
 
 	fflush(flogg);

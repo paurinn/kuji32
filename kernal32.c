@@ -181,6 +181,9 @@ int kernal32_erasechip(struct kernal32 *state, uint32_t flash_base) {
 
 	double timeout = get_ticks() + 30;
 	double ticktimeout = get_ticks() + 2;
+#ifdef __WIN32__
+	int counter = 0;
+#endif
 	while (get_ticks() < timeout) {
 		rc = serial_read(state->serial, buf, 1);
 		if (rc < 0) {
@@ -200,7 +203,11 @@ int kernal32_erasechip(struct kernal32 *state, uint32_t flash_base) {
 				return E_MSGMALFORMED;
 			}
 		} else if (get_ticks() > ticktimeout) {
+#ifdef __WIN32__
+			LOGI("Erase %d", counter++);
+#else
 			LOGR("#");
+#endif
 			ticktimeout = get_ticks() + 2;
 			msleep(100);
 		}

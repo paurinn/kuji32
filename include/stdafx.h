@@ -36,16 +36,7 @@ or project specific include files that are used frequently, but are changed infr
 
 // Windows Header Files:
 #include <windows.h>
-
-#ifdef GUI
 #include <windowsx.h>
-#include <basetyps.h>
-#include <shellapi.h>
-#include <objbase.h>
-#include <resource.h>
-#include <commdlg.h>
-#include <commctrl.h>
-#endif //GUI
 
 #endif //__WIN32__
 
@@ -73,7 +64,6 @@ or project specific include files that are used frequently, but are changed infr
 #include <ctype.h>
 #include <math.h>
 #include <signal.h>
-#include <libintl.h>
 #include <fcntl.h>
 
 #ifndef __WIN32__

@@ -23,6 +23,7 @@ LD = clang
 #CC = gcc
 #LD = gcc
 INSTALL = install
+CP = cp
 RM = rm
 MKDIR = mkdir
 SHA1SUM = sha1sum
@@ -38,5 +39,5 @@ PREFIX ?= /usr/local
 CFLAGS	+= -D_GNU_SOURCE -D_POSIX_C_SOURCE=2 -D_XOPEN_SOURCE
 LDFLAGS	+= -lrt -lm
 
-#SRCS +=
+SRCS += main32.c
 

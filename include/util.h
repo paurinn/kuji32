@@ -243,11 +243,13 @@ int asprintf(char **ret, const char *format, ...);
 #endif
 
 /**
-Writes the current date formatted as 'DD.MM.YYYY hh:mm:ss.ms' into dest (which must hold 22 or more bytes).
+Writes the given date (or current date if given zero) formatted as 'DD.MM.YYYY hh:mm:ss.ms' into dest (which must hold 22 or more bytes).
 @param dest Destination memory, must be 22 bytes or more.
-@return Returns the number of bytes written (should be 22 bytes exactly).
+@param size Size in bytes of dest[].
+@param tim The time to format. If zero then local time is used.
+@return Returns the number of bytes written.
 */
-int timestamp(char *dest);
+int timestamp(char *dest, uint8_t size, time_t tim);
 
 /**
 Writes the current date formatted as 'DD.MM.YYYY' into dest (which must hold 10 or more bytes).

@@ -193,20 +193,20 @@ enum failures32 {
 		This usually means the MCU has no power, program jumper not in place or
 		connection failure in RS232 cable.
 	*/
-	EXIT_FAIL_TIMEOUT		= 1,	/**< Error time-out waiting for MCU. */
-	EXIT_FAIL_NOTBLANK		= 2,	/**< Was asked to blank check or write and the MCU was NOT blank. */
-	EXIT_FAIL_ISBLANK		= 3,	/**< Was asked to blank check or read and the MCU was blank. */
-	EXIT_FAIL_READ			= 4,	/**< Error reading from MCU. */
-	EXIT_FAIL_WRITE			= 5,	/**< Error writing to MCU. */
-	EXIT_FAIL_SRECORD		= 6,	/**< Error in S-Record either file I/O or its data. */
-	EXIT_FAIL_CRC			= 7,	/**< Error in communication detected by CRC. */
-	EXIT_FAIL_SERIAL		= 8,	/**< Error in serial port such as access restrictions or errors in reading or writing. */
-	EXIT_FAIL_CHIPDEF		= 9,	/**< Error in 'chipdef32.ini' either reading from it or in its data. */
-	EXIT_FAIL_ARGUMENT		= 10,	/**< Error in one of the arguments either missing or invalid. */
-	EXIT_FAIL_INITBIROM		= 11,	/**< Error initializing Birom32 interface. */
-	EXIT_FAIL_INITKERNAL	= 12,	/**< Error initializing Kernal interface. */
-	EXIT_FAIL_BLANK			= 13,	/**< Error blank-checking MCU. */
-	EXIT_FAIL_ERASE			= 14,	/**< Error erasing MCU. */
+	FAIL_TIMEOUT		= 1,	/**< Error time-out waiting for MCU. */
+	FAIL_NOTBLANK		= 2,	/**< Was asked to blank check or write and the MCU was NOT blank. */
+	FAIL_ISBLANK		= 3,	/**< Was asked to blank check or read and the MCU was blank. */
+	FAIL_READ			= 4,	/**< Error reading from MCU. */
+	FAIL_WRITE			= 5,	/**< Error writing to MCU. */
+	FAIL_SRECORD		= 6,	/**< Error in S-Record either file I/O or its data. */
+	FAIL_CRC			= 7,	/**< Error in communication detected by CRC. */
+	FAIL_SERIAL		= 8,	/**< Error in serial port such as access restrictions or errors in reading or writing. */
+	FAIL_CHIPDEF		= 9,	/**< Error in 'chipdef32.ini' either reading from it or in its data. */
+	FAIL_ARGUMENT		= 10,	/**< Error in one of the arguments either missing or invalid. */
+	FAIL_INITBIROM		= 11,	/**< Error initializing Birom32 interface. */
+	FAIL_INITKERNAL	= 12,	/**< Error initializing Kernal interface. */
+	FAIL_BLANK			= 13,	/**< Error blank-checking MCU. */
+	FAIL_ERASE			= 14,	/**< Error erasing MCU. */
 };
 
 /** MCU nametag. */
@@ -283,6 +283,25 @@ struct chipdef32 {
 */
 extern struct chipdef32 chipdefs[MAX_MCU32_TYPE];
 
+/** This structure contains the results of command line argument parser. */
+struct params32 {
+	char *argstr;		/**< Control string for getopt(). */
+	char *srecpath;		/**< Parameter given to '-w'. */
+	char *savepath;		/**< Parameter given to '-r'. */
+	char *comarg;		/**< Parameter given to '-p'. */
+
+	bool erase;			/**< User requested erase with '-e'. */
+	bool read;			/**< User requested read with '-r'. */
+	bool write;			/**< User requested write with '-w'. */
+	bool blankcheck;	/**< User requested blank with '-b'. */
+	bool debugging;		/**< User requested debugging output with '-d'. */
+
+	int timeoutsec;		/**< Parameter given to '-t'. */
+	enum frequency freq;	/**< Currently selected target crystal frequency. */
+	struct chipdef32 *chip;	/**< MCU descriptor. */
+	int freqid;			/**< Index into chip->clock[], chip->bps[] and chip->bps2[]. */
+};
+
 /**
 This mambo processes 'chipdef32.xml' file that describes each supported processor.
 The global array chipdefs[] receives the processed data.
@@ -306,6 +325,26 @@ int find_mcu32_by_name(char *s);
 	@return On failure i.e. invalid type, returns NULL.
 */
 const char *mcu32_name(enum mcu32_type type);
+
+/**
+Process parameters.
+The parameters are prepared by command line or GUI.
+@param argc Argument count.
+@param argv Argument vector.
+@param params Destination for the parsed parameters.
+@return On success, returns 1.
+@return On success if there is nothing to do, returns E_NONE.
+@return On failure, returns an error code from enum failures.
+*/
+int process_params32(int argc, char *argv[], struct params32 *params);
+
+/**
+Program process automata.
+@param params Process parameters.
+@return On success, returns E_NONE.
+@return On failure, returns a error code from enum failures.
+*/
+int process32(struct params32 *params);
 
 #endif //__PROG32_H__
 

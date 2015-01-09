@@ -26,9 +26,12 @@ DEBUGGING	= false
 # Base name of the binary executable. Version numbers are appended to final binary name.
 OUTPUT		= kuji32
 
+# Build graphical user interface on platforms that support it.
+GUI = true
+
 # Any platform neutral options to the compiler.
 # Platform specific stuff is in makefile.$(shell uname -s).
-CFLAGS = -Wall -Wextra -Werror -Wfatal-errors -Wno-unused-parameter -Wno-unused-variable --std=gnu99 -I./include -DCONSOLE
+CFLAGS = -Wall -Wextra -Werror -Wfatal-errors -Wno-unused-parameter -Wno-unused-variable --std=gnu99 -I./include
 
 # Any platform neutral options to the linker.
 #LDFLAGS =
@@ -48,8 +51,7 @@ SRCS =	\
 		srec.c \
 		prog32.c \
 		birom32.c \
-		kernal32.c \
-		main32.c
+		kernal32.c
 
 ###############################################################################
 
@@ -59,43 +61,47 @@ MINOR	= $(shell sed -n '2p' VERSION | cut -d= -f2)
 BUILD	= $(shell sed -n '3p' VERSION | cut -d= -f2)
 COMPANY	= $(shell sed -n '4p' VERSION | cut -d= -f2)
 
-SVNREVISION = $(shell svn info 2>/dev/null | grep '^Revision' | sed -e 's/Revision: *//')
-ifeq "$(SVNREVISION)" ""
-SVNREVISION = 0
+REVISION = $(shell svn info 2>/dev/null | grep '^Revision' | sed -e 's/Revision: *//')
+ifeq "$(REVISION)" ""
+REVISION = 0
 endif
 
-CFLAGS += -DREVISION=$(SVNREVISION) -DBUILD_TIMESTAMP=$(shell date '+%s') -DMAJORVERSION=$(MAJOR) -DMINORVERSION=$(MINOR) -DBUILD=$(BUILD)
+CFLAGS += -DREVISION=$(REVISION) -DBUILD_TIMESTAMP=$(shell date '+%s') -DMAJORVERSION=$(MAJOR) -DMINORVERSION=$(MINOR) -DBUILD=$(BUILD)
 
 # Select debugging or optimized compiler flags.
 ifeq ($(DEBUGGING), true)
-CFLAGS += -O0 -g3 -ggdb3 -DDEBUGGING
+CFLAGS += -O0 -g -DDEBUGGING
 else
 CFLAGS += -O3
 endif
 
+RCOBJ = kuji32_rc.o
+
 INSTALLDIR = $(PREFIX)/bin
 
 #Stage directory is used to build a zip package of the final binary + documentation.
+#This can be overwritten by platform specific makefile.
 STAGEDIR = $(OUTPUT)_stage
 
 #Name of zipped file with executable and documentation.
-ZIPOUT = $(OUTPUT).$(MAJOR).$(MINOR).zip
+ZIPOUT = $(OUTPUT).$(MAJOR).$(MINOR).$(BUILD).zip
 
-CLEANFILES += $(OUTPUT)$(EXT) *.core gmon.out $(OBJS) $(OUTPUT).sha1 $(EXTRACLEAN) doc/*.tmp *.tmp
+CLEANFILES += $(OUTPUT)$(EXT) *.core gmon.out $(OBJS) $(OUTPUT).sha1 $(EXTRACLEAN) doc/*.tmp *.tmp $(RCOBJ)
 MRPROPERFILES += $(CLEANFILES) doc/latex *.log
-DISTCLEANFILES += $(MRPROPERFILES) html $(STAGEDIR) $(ZIPOUT) kernal32/m_flash.* chipdef32.ini
+DISTCLEANFILES += $(MRPROPERFILES) html $(STAGEDIR) $(ZIPOUT)
 
-STAGEFILES += $(OUTPUT)$(EXT) html LICENSE README HISTORY VERSION doc *.c include Makefile makefile.* buildcounter.lua
+STAGEFILES += $(OUTPUT)$(EXT) kernal32/ chipdef32.ini LICENSE README HISTORY
 
 #Include system specific Makefile. This is based on kernel name from 'uname -s'.
 #The basic declarations can be overwritten to suit each system.
 KERNEL=$(shell uname -s)
+#KERNEL=MINGW32_NT-6.1
 TOP := $(dir $(lastword $(MAKEFILE_LIST)))
 include $(TOP)/makefile.$(KERNEL)
 
 ### Rules
 .SUFFIXES : .c .o
-.PHONY: info doc clean mrproper dist distclean help prep buildcounter cloc
+.PHONY: info doc clean mrproper dist distclean help prep
 
 RULES += $(OBJS) $(OUTPUT)$(EXT)
 
@@ -107,12 +113,17 @@ all: $(RULES)
 	$(ECHO) "[COMPILE] $@"
 	$(AT)$(CC) $(CFLAGS) -c -o $*.o $<
 
+#Special target for compiled windows resource file.
+$(RCOBJ): $(RCFILE)
+	$(ECHO) "[$(FG_CYAN)WINDRES$(NORMAL)] $(RCFILE) > $(RCOBJ)"
+	$(AT)$(RESCC) $(RESCFLAGS) $(RCFILE) $(RCOBJ)
+
 $(OUTPUT)$(EXT): $(OBJS)
 	$(ECHO) "[LINKING] $(OUTPUT)$(EXT)"
 	$(AT)$(LD) $(OBJS) $(LDFLAGS) -o $(OUTPUT)$(EXT)
 
 info:
-	$(ECHO) "Source to build for $(OUTPUT)$(EXT):"
+	$(ECHO) "Source to build for $(OUTPUT):"
 	$(AT)ls -1lh $(SRCS)
 	$(ECHO) ""
 	$(ECHO) "Files included in $(ZIPOUT):"
@@ -134,13 +145,13 @@ cloc:
 	$(AT)cloc .
 
 buildcounter:
-	$(AT)./buildcounter.lua
+	$(AT)lua buildcounter.lua
 
 distclean:
 	$(ECHO) "[DISTCLEAN] $(DISTCLEANFILES)"
 	$(AT)$(RM) -rf $(DISTCLEANFILES)
 
-dist: distclean buildcounter cloc $(RCOBJ) $(OUTPUT)$(EXT) doc
+dist: distclean buildcounter $(RCOBJ) $(OUTPUT)$(EXT)
 	$(AT)mkdir -p $(STAGEDIR)
 	$(AT)$(CP) -r $(STAGEFILES) $(STAGEDIR)
 	$(ECHO) "[ZIP] $(STAGEFILES) > $(ZIPOUT)"
