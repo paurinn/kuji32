@@ -25,8 +25,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #endif
 
 #define IDD_DLGPROGRAM							100
-#define IDI_MAIN								101	//Main icon
-#define IDI_SMALL								102
+#define IDI_KUJI32								101	//Main icon
+#define IDI_KUJI32_SMALL						102
 #define IDC_RBREAD                              103
 #define IDC_RBWRITE                             104
 #define IDC_EDTFILE								105

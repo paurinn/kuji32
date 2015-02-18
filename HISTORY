@@ -12,3 +12,8 @@ v0.5 - KS - 20140331
 
 v0.8 - KS - 20150109
 	Added win32 GUI, works well with Wine and compiles properly using either Mingw or Cygwin.
+
+v0.9 - KS - 20150114
+	Added the compile option READINGINHIBITED to inhibit reading except
+	the command line option "pleaseenablereading" is supplied.
+	Fixed the window icon.

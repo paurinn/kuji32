@@ -52,8 +52,8 @@ CFLAGS += -static -static-libgcc -D__WIN32__ -mms-bitfields
 LDFLAGS	+= -static -static-libgcc -L/usr/lib/w32api -lkernel32 -mms-bitfields
 
 ifeq ($(GUI), true)
-CFLAGS += -mwindows
-LDFLAGS	+= $(RCOBJ) -lgdi32 -lole32 -lcomctl32 -mwindows
+CFLAGS += -mwindows -mconsole
+LDFLAGS	+= $(RCOBJ) -lgdi32 -lole32 -lcomctl32 -mwindows -mconsole
 SRCS += mainw32.c
 else
 CFLAGS += -mconsole

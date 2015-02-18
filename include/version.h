@@ -42,7 +42,6 @@ struct version {
 	int major;		/**< Major version. */
 	int minor;		/**< Minor version. */
 	int build;		/**< Build count i.e. 'make dist' increments this on each build. */
-	int revision;	/**< Subversion or other such revision i.e. a link to source control. */
 	time_t build_date;	/**< Time when library was built (unix epoch). */
 	char text[VERSION_TEXT_LENGTH];	/**< Arbitrary string identifier. */
 };

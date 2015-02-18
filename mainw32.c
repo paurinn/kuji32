@@ -36,6 +36,7 @@ char savefilename[MAX_PATH];
 char compath[256];
 char port[256];
 volatile int busy = 0;
+char readingenabled = 0;
 
 //For app name and version.
 char windowtitle[256];
@@ -50,6 +51,14 @@ void chdir_to_exe();
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
 	MSG msg;
 
+#ifdef READINGINHIBITED
+	if (lpCmdLine && strcmp("pleaseenablereading", lpCmdLine) == 0) {
+		readingenabled = 1;
+	}
+#else
+		readingenabled = 1;
+#endif
+
 	if (process_chipdef32() != E_NONE) {
 		MessageBox(NULL, "Error processing 'chipdef32.ini'", "Fatal Error", MB_OK);
 		return 1;
@@ -60,13 +69,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		.hInstance		= hInstance,
 		.hbrBackground	= (HBRUSH)(COLOR_BACKGROUND),
 		.lpszClassName	= "kuji32",
-		.hIcon			= LoadIcon(NULL, MAKEINTRESOURCE(IDI_MAIN))// Windows logo
+		.hIcon			= LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_KUJI32))// Windows logo
 	};
 
-	if ( !RegisterClass(&wc))
+	if (!RegisterClass(&wc))
 		return 1;
 
-	snprintf(windowtitle, sizeof(windowtitle), "%s v%d.%d.%d-%d", version.text, version.major, version.minor, version.revision, version.build);
+	snprintf(windowtitle, sizeof(windowtitle), "%s v%d.%d.%d", version.text, version.major, version.minor, version.build);
 
 	hInst = hInstance;
 	hWnd = CreateWindow(
@@ -153,9 +162,19 @@ INT_PTR CALLBACK DlgProgProc (HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 	switch(uMsg) {
 	case WM_INITDIALOG:
-		//TODO, fill dialog controls with data.
-		child = GetDlgItem(hwndDlg, IDC_RBREAD);
-		Button_SetCheck(child, 1);
+		if (readingenabled) {
+			child = GetDlgItem(hwndDlg, IDC_RBREAD);
+			Button_Enable(child, 1);
+			Button_SetCheck(child, 1);
+		} else {
+			child = GetDlgItem(hwndDlg, IDC_RBREAD);
+			ShowWindow(child, 0);
+
+			child = GetDlgItem(hwndDlg, IDC_RBWRITE);
+			Button_Enable(child, 1);
+			Button_SetCheck(child, 1);
+		}
+
 		int i;
 		HWND child = GetDlgItem(hwndDlg, IDC_CBXMCU);
 		for (i = 1; mcu32_map[i].name; i++) {
@@ -172,10 +191,19 @@ INT_PTR CALLBACK DlgProgProc (HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
 		ComboBox_SetCurSel(child, 0);
 
 		params.savepath = savefilename;
-		params.read = true;
+
+		//Set default mode.
+		if (readingenabled) {
+			params.read = true;
+			params.write = false;
+			params.erase = false;
+		} else {
+			params.read = false;
+			params.write = true;
+			params.erase = true;
+		}
 
 		params.srecpath = filepath;
-		params.write = false;
 
 		snprintf(compath, sizeof(compath)-1, "%d", ComboBox_GetCurSel(GetDlgItem(hwndDlg, IDC_CBXPORT))+1);
 		params.comarg = compath;

@@ -27,7 +27,6 @@ struct version version = {
 	MAJORVERSION,
 	MINORVERSION,
 	BUILD,
-	REVISION,
 	BUILD_TIMESTAMP,
 	"Kuji32 Flash MCU Programmer"
 };
@@ -35,7 +34,7 @@ struct version version = {
 /** Version as a C string. */
 const char *version_string() {
 	static char _version_string[255];
-	snprintf(_version_string, sizeof(_version_string), "%s v%d.%d.%d-%d Stardate %ld", version.text, version.major, version.minor, version.revision, version.build, (long)version.build_date);
+	snprintf(_version_string, sizeof(_version_string), "%s v%d.%d.%d Stardate %ld", version.text, version.major, version.minor, version.build, (long)version.build_date);
 	return _version_string;
 }
 

@@ -29,6 +29,10 @@ OUTPUT		= kuji32
 # Build graphical user interface on platforms that support it.
 GUI = true
 
+# Build a version where reading is inhibited unless uer
+# supplies command line argument "pleaseenablereading".
+READINGINHIBITED = false
+
 # Any platform neutral options to the compiler.
 # Platform specific stuff is in makefile.$(shell uname -s).
 CFLAGS = -Wall -Wextra -Werror -Wfatal-errors -Wno-unused-parameter -Wno-unused-variable --std=gnu99 -I./include
@@ -75,6 +79,11 @@ else
 CFLAGS += -O3
 endif
 
+# Set reading inhibit mambo.
+ifeq ($(READINGINHIBITED), true)
+CFLAGS += -DREADINGINHIBITED
+endif
+
 RCOBJ = kuji32_rc.o
 
 INSTALLDIR = $(PREFIX)/bin
@@ -94,8 +103,8 @@ STAGEFILES += $(OUTPUT)$(EXT) kernal32/ chipdef32.ini LICENSE README HISTORY
 
 #Include system specific Makefile. This is based on kernel name from 'uname -s'.
 #The basic declarations can be overwritten to suit each system.
-KERNEL=$(shell uname -s)
-#KERNEL=MINGW32_NT-6.1
+#You can override this on the command line: `make KERNEL=MINGW32_NT-6.1`.
+KERNEL?=$(shell uname -s)
 TOP := $(dir $(lastword $(MAKEFILE_LIST)))
 include $(TOP)/makefile.$(KERNEL)
 
@@ -151,7 +160,7 @@ distclean:
 	$(ECHO) "[DISTCLEAN] $(DISTCLEANFILES)"
 	$(AT)$(RM) -rf $(DISTCLEANFILES)
 
-dist: distclean buildcounter $(RCOBJ) $(OUTPUT)$(EXT)
+dist: distclean $(RCOBJ) $(OUTPUT)$(EXT)
 	$(AT)mkdir -p $(STAGEDIR)
 	$(AT)$(CP) -r $(STAGEFILES) $(STAGEDIR)
 	$(ECHO) "[ZIP] $(STAGEFILES) > $(ZIPOUT)"
